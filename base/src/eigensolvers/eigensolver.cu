@@ -156,6 +156,13 @@ void EigenSolver<TConfig>::setup(Operator<TConfig> &A)
     m_setup_time *= 1e-3f;
 }
 
+template <class TConfig>
+void EigenSolver<TConfig>::setup(Operator<TConfig> &A, Operator<TConfig> &M)
+{
+    setup(A);
+    m_M = &M;
+}
+
 template<class TConfig>
 void EigenSolver<TConfig>::exchangeSolveResultsConsolidation(AMGX_STATUS &status)
 {

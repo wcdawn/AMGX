@@ -98,6 +98,7 @@ class EigenSolver
         bool converged() const;
 
         void setup(Operator<TConfig> &A);
+        void setup(Operator<TConfig> &A, Operator<TConfig> &M);
 
         virtual void solver_setup() = 0;
         virtual void solver_pagerank_setup(VVector &a) = 0;
@@ -137,6 +138,7 @@ class EigenSolver
 
     protected:
         Operator<TConfig> *m_A;
+        Operator<TConfig> *m_M;
 
         bool m_want_eigenvectors;
         double m_tolerance;

@@ -192,6 +192,31 @@ void AMG_EigenSolver<T_Config>::setup( Matrix<T_Config> &A)//&A0)
 }
 
 template< class T_Config >
+void AMG_EigenSolver<T_Config>::setup( Matrix<T_Config> &A, Matrix<T_Config> &M)
+{
+    if ( m_with_timings )
+    {
+        cudaEventRecord(m_setup_start);
+    }
+
+    // postpone free syncs, use device pool
+    memory::setAsyncFreeFlag(true);
+    solver->setup(A, M);
+    m_resources->get_tmng()->wait_threads();
+    thrust::global_thread_handle::joinDevicePools();
+    // reset settings to normal
+    memory::setAsyncFreeFlag(false);
+    // free postponed objects
+    thrust::global_thread_handle::cudaFreeWait();
+
+    if ( m_with_timings )
+    {
+        cudaEventRecord(m_setup_stop);
+        cudaEventSynchronize(m_setup_stop);
+    }
+}
+
+template< class T_Config >
 AMGX_ERROR AMG_EigenSolver<T_Config>::setup_no_throw( Matrix<T_Config> &A)
 {
     AMGX_ERROR rc = AMGX_OK;
@@ -199,6 +224,20 @@ AMGX_ERROR AMG_EigenSolver<T_Config>::setup_no_throw( Matrix<T_Config> &A)
     try
     {
         this->setup(A);
+    }
+
+    AMGX_CATCHES(rc)
+    return rc;
+}
+
+template< class T_Config >
+AMGX_ERROR AMG_EigenSolver<T_Config>::setup_no_throw( Matrix<T_Config> &A, Matrix<T_Config> &M )
+{
+    AMGX_ERROR rc = AMGX_OK;
+
+    try
+    {
+        this->setup(A, M);
     }
 
     AMGX_CATCHES(rc)
@@ -251,6 +290,27 @@ void AMG_EigenSolver<T_Config>::setup_capi( std::shared_ptr<Matrix<T_Config>> pA
     setup(*m_ptrA);
 }
 
+template< class T_Config >
+void AMG_EigenSolver<T_Config>::setup_capi( std::shared_ptr<Matrix<T_Config>> pA0, std::shared_ptr<Matrix<T_Config>> pM0 )
+{
+    m_ptrA = pA0;
+    m_ptrM = pM0;
+    setup(*m_ptrA, *m_ptrM);
+}
+
+template< class T_Config >
+AMGX_ERROR AMG_EigenSolver<T_Config>::setup_capi_no_throw( std::shared_ptr<Matrix<T_Config>> pA0, std::shared_ptr<Matrix<T_Config>> pM0)
+{
+    AMGX_ERROR rc = AMGX_OK;
+
+    try
+    {
+        this->setup_capi(pA0, pM0);
+    }
+
+    AMGX_CATCHES(rc)
+    return rc;
+}
 
 template< class T_Config >
 AMGX_ERROR AMG_EigenSolver<T_Config>::setup_capi_no_throw( std::shared_ptr<Matrix<T_Config>> pA0)

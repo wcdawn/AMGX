@@ -42,6 +42,8 @@ AMGX_RC AMGX_API AMGX_eigensolver_create(AMGX_eigensolver_handle *ret, AMGX_reso
 
 AMGX_RC AMGX_API AMGX_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle mtx);
 
+AMGX_RC AMGX_API AMGX_generalized_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle Amtx, AMGX_matrix_handle Mmtx);
+
 AMGX_RC AMGX_API AMGX_eigensolver_pagerank_setup(AMGX_eigensolver_handle eigensolver, AMGX_vector_handle a);
 
 AMGX_RC AMGX_API AMGX_eigensolver_solve(AMGX_eigensolver_handle eigensolver, AMGX_vector_handle x);

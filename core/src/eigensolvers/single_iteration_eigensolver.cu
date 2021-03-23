@@ -1,3 +1,5 @@
+// vim: set ts=4 sw=4 sts=4:
+
 /* Copyright (c) 2013-2017, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,7 +107,7 @@ __global__ void update_a(index_type num_rows,
 template <class TConfig>
 SingleIteration_EigenSolver<TConfig>::SingleIteration_EigenSolver(AMG_Config &cfg,
         const std::string &cfg_scope)
-    : Base(cfg, cfg_scope), m_cfg(cfg), m_operator(NULL)
+    : Base(cfg, cfg_scope), m_cfg(cfg), m_a_operator(NULL), m_m_operator(NULL)
 {
     m_convergence_check_freq = cfg.getParameter<int>("eig_convergence_check_freq", cfg_scope);
 }
@@ -113,16 +115,16 @@ SingleIteration_EigenSolver<TConfig>::SingleIteration_EigenSolver(AMG_Config &cf
 template <class TConfig>
 SingleIteration_EigenSolver<TConfig>::~SingleIteration_EigenSolver()
 {
-    /*if (m_operator)
-        delete m_operator;*/
+    /*if (m_a_operator)
+        delete m_a_operator;*/
     if (this->m_which == EIG_SMALLEST)
     {
-        delete m_operator;
+        delete m_a_operator;
     }
 
     if (this->m_which == EIG_PAGERANK)
     {
-        delete m_operator;
+        delete m_a_operator;
     }
 
     free_allocated();
@@ -209,14 +211,35 @@ void SingleIteration_EigenSolver<TConfig>::update_dangling_nodes()
 template <class TConfig>
 void SingleIteration_EigenSolver<TConfig>::solver_setup()
 {
+    std::cout << "AMGX_HERE_SOLVER_SETUP" << std::endl;
     Operator<TConfig> &A = *this->m_A;
-    ViewType oldView = A.currentView();
+    ViewType AoldView = A.currentView();
     A.setViewExterior();
+
+    Operator<TConfig> &M = *this->m_M;
+
+    /*
+    Operator<TConfig> &M = *this->m_M; // TODO possible null dereference
+    ViewType MoldView = M.currentView();
+    M.setViewExterior();
+    */
+
+    /*
+    ViewType MoldView;
+    bool is_generalized{false};
+    if (this->m_M)
+    {
+        is_generalized = true;
+        Operator<TConfig> &M = *this->m_M;
+        MoldView = M.currentView();
+        M.setViewExterior();
+    }
+    */
 
     if (this->m_which == EIG_PAGERANK)
     {
         PagerankOperator<TConfig> *op = new PagerankOperator<TConfig>(A, &m_a, &m_b, this->m_damping_factor);
-        m_operator = op;
+        m_a_operator = op;
     }
     else if (this->m_which == EIG_SMALLEST)
     {
@@ -229,11 +252,11 @@ void SingleIteration_EigenSolver<TConfig>::solver_setup()
         SolveOperator<TConfig> *solve_op = new SolveOperator<TConfig>(*op, *solver);
 #endif
         solve_op->setup();
-        m_operator = solve_op;
+        m_a_operator = solve_op;
     }
     else
     {
-        m_operator = &A;
+        m_a_operator = &A;
     }
 
     const int N = static_cast<int>(A.get_num_cols() * A.get_block_dimy());
@@ -264,7 +287,16 @@ void SingleIteration_EigenSolver<TConfig>::solver_setup()
         v->delayed_send = 1;
     }
 
-    A.setView(oldView);
+    A.setView(AoldView);
+
+    /*
+    if (is_generalized)
+    {
+        Operator<TConfig> &M = *this->m_M;
+        M.setView(MoldView);
+    }
+    */
+
 }
 
 template <class TConfig>
@@ -309,6 +341,7 @@ void SingleIteration_EigenSolver<TConfig>::solver_pagerank_setup(VVector &a)
 template <class TConfig>
 void SingleIteration_EigenSolver<TConfig>::solve_init(VVector &x)
 {
+    std::cout << "AMGX_HERE_SOLVE_INIT" << std::endl;
     Operator<TConfig> &A = *this->m_A;
     ViewType oldView = A.currentView();
     A.setViewExterior();
@@ -338,10 +371,26 @@ bool SingleIteration_EigenSolver<TConfig>::solve_iteration(VVector &x)
     A.setViewExterior();
     int offset, size;
     A.getOffsetAndSizeForView(A.getViewExterior(), &offset, &size);
+
     // V = X / norm(X)
     scal(m_v, ValueTypeVec(1) / get_norm(A, m_v, this->m_norm_type), offset, size);
-    // X = linsolve(A, v)
-    m_operator->apply(m_v, m_x);
+
+    if (m_m_operator)
+    {
+      // generalized eigenproblem
+      // y <- M*v
+      m_m_operator->apply(m_v, m_y); // mat*vec
+      // x <- A^-1 * y
+      m_a_operator->apply(m_y, m_x); // solve
+    }
+    else
+    {
+      // ordinary eigenproblem
+      // X = linsolve(A, v)
+      m_a_operator->apply(m_v, m_x);
+    }
+
+
 
     if ((this->m_curr_iter % this->m_convergence_check_freq) == 0)
     {

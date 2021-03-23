@@ -98,6 +98,8 @@ class AMG_EigenSolver
         ****************************************************/
         void setup( Matrix<T_Config> &A );
         AMGX_ERROR setup_no_throw( Matrix<T_Config> &A );
+        void setup( Matrix<T_Config> &A , Matrix<T_Config> &M );
+        AMGX_ERROR setup_no_throw( Matrix<T_Config> &A , Matrix<T_Config> &M );
 
         void pagerank_setup(Vector<T_Config> &a);
         AMGX_ERROR pagerank_setup_no_throw(Vector<T_Config> &a);
@@ -107,7 +109,9 @@ class AMG_EigenSolver
         ****************************************************/
 
         void setup_capi( std::shared_ptr<Matrix<T_Config>> pA0);
+        void setup_capi( std::shared_ptr<Matrix<T_Config>> pA0, std::shared_ptr<Matrix<T_Config>> pM0);
         AMGX_ERROR setup_capi_no_throw( std::shared_ptr<Matrix<T_Config>> pA0);
+        AMGX_ERROR setup_capi_no_throw( std::shared_ptr<Matrix<T_Config>> pA0, std::shared_ptr<Matrix<T_Config>> pM0);
 
         /****************************************************
         * Solves the AMG system Ax=b.
@@ -148,7 +152,13 @@ class AMG_EigenSolver
             return *m_ptrA;
         }
 
+        Matrix<T_Config> &get_M(void)
+        {
+            return *m_ptrM;
+        }
+
         std::shared_ptr<Matrix<T_Config>> m_ptrA;
+        std::shared_ptr<Matrix<T_Config>> m_ptrM;
 
         void mem_manage(Matrix<T_Config> &A)
         {

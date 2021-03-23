@@ -1,3 +1,5 @@
+// vim: set ts=4 sw=4 sts=4:
+
 /* Copyright (c) 2013-2017, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,12 +66,17 @@ class SingleIteration_EigenSolver : public EigenSolver<TConfig>
     private:
         int m_convergence_check_freq;
         AMG_Config m_cfg;
-        Operator<TConfig> *m_operator;
+        Operator<TConfig> *m_a_operator;
         VVector m_v;
         VVector m_x;
         VVector m_a;
         VVector m_b;
         std::vector<VVector *> m_allocated_vectors;
+
+    public:
+        Operator<TConfig> *m_m_operator{nullptr};
+        VVector m_y;
+
 };
 
 template<class TConfig>

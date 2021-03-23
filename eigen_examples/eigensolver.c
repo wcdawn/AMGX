@@ -203,22 +203,23 @@ int main(int argc, const char **argv)
   AMGX_SAFE_CALL(AMGX_eigensolver_solve(eigensolver, x));
 
   // prints all residual, uncomment to enable
-  /*int iters = 0;
+  /*
+  int iters = 0;
   int t_n, t_dimx, t_dimy;
   AMGX_SAFE_CALL(AMGX_matrix_get_size(A, &t_n, &t_dimx, &t_dimy));
   AMGX_SAFE_CALL(AMGX_eigensolver_get_iterations_number(eigensolver, &iters));
 
-    for (int i = 0; i < iters; i++)
+  for (int i = 0; i < iters; i++)
+  {
+    printf("Residual from iteration %d = ", i);
+    for (int j = 0; j < t_dimy; j++)
     {
-      printf("Residual from iteration %d = ", i);
-      for (int j = 0; j < t_dimy; j++)
-      {
-        double res;
-        AMGX_eigensolver_get_iteration_residual(eigensolver, i, j, &res);
-        printf("%f ", (float)(res));
-      }
-      printf("\n");
+      double res;
+      AMGX_eigensolver_get_iteration_residual(eigensolver, i, j, &res);
+      printf("%f ", (float)(res));
     }
+    printf("\n");
+  }
   */
 
 

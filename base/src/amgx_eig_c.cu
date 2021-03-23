@@ -103,6 +103,40 @@ inline AMGX_ERROR eigensolve_setup(AMGX_eigensolver_handle slv,
     return solver.setup_capi_no_throw(wrapA.wrapped());
 }
 
+template<AMGX_Mode CASE,
+         template<typename> class SolverType,
+         template<typename> class MatrixType>
+inline AMGX_ERROR generalized_eigensolve_setup(AMGX_eigensolver_handle slv,
+                                               AMGX_matrix_handle Amtx,
+                                               AMGX_matrix_handle Mmtx,
+                                               Resources *resources)
+{
+    typedef SolverType<typename TemplateMode<CASE>::Type> SolverLetterT;
+    typedef CWrapHandle<AMGX_eigensolver_handle, SolverLetterT> SolverW;
+    typedef MatrixType<typename TemplateMode<CASE>::Type> MatrixLetterT;
+    typedef CWrapHandle<AMGX_matrix_handle, MatrixLetterT> MatrixW;
+
+    MatrixW wrapA(Amtx);
+    MatrixW wrapM(Mmtx);
+    MatrixLetterT &A = *wrapA.wrapped();
+    MatrixLetterT &M = *wrapM.wrapped();
+
+    SolverW wrapSolver(slv);
+    SolverLetterT &solver = *wrapSolver.wrapped();
+
+    if ((wrapA.mode() != wrapSolver.mode()) || (wrapA.mode() != wrapM.mode()))
+    {
+        FatalError("Error: mismatch between Matrix mode and Solver Mode.\n", AMGX_ERR_BAD_PARAMETERS);
+    }
+
+    if ((A.getResources() != solver.getResources()) || (A.getResources() != M.getResources()))
+    {
+        FatalError("Error: matrix and solver use different resources object, exiting", AMGX_ERR_BAD_PARAMETERS);
+    }
+
+    //cudaSetDevice(solver.getResources()->getDevice(0));
+    return solver.setup_capi_no_throw(wrapA.wrapped(), wrapM.wrapped());
+}
 
 template<AMGX_Mode CASE,
          template<typename> class SolverType,
@@ -250,6 +284,35 @@ extern "C" {
         return getCAPIerror_x(rc);
     }
 
+    AMGX_RC AMGX_generalized_eigensolver_setup(AMGX_eigensolver_handle eigensolver, AMGX_matrix_handle Amtx, AMGX_matrix_handle Mmtx)
+    {
+        Resources *resources;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromEigenSolverHandle(eigensolver, &resources)), NULL);
+        AMGX_ERROR rc = AMGX_OK;
+
+        try
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_eigensolver_handle>(eigensolver);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: { \
+      typedef TemplateMode<CASE>::Type TConfig; \
+      generalized_eigensolve_setup<CASE, AMG_EigenSolver, Matrix>(eigensolver, Amtx, Mmtx, resources); \
+      break;\
+        }
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources) \
+            }
+        }
+
+        AMGX_CATCHES(rc)
+        return getCAPIerror_x(rc);
+    }
 
     AMGX_RC AMGX_eigensolver_pagerank_setup(AMGX_eigensolver_handle eigensolver, AMGX_vector_handle a)
     {
