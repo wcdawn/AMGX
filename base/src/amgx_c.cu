@@ -1,3 +1,5 @@
+// vim: set ts=4 sw=4 sts=4:
+
 /* Copyright (c) 2011-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1122,6 +1124,35 @@ inline AMGX_RC vector_set_zero(AMGX_vector_handle vec,
     v.resize(n * block_dim);
     v.set_block_dimy(block_dim);
     thrust::fill(v.begin(), v.end(), types::util<ValueTypeB>::get_zero());
+    cudaCheckError();
+    return AMGX_RC_OK;
+}
+
+template<AMGX_Mode CASE>
+inline AMGX_RC vector_scale(AMGX_vector_handle vec,
+                            int n,
+                            double alpha,
+                            Resources *resources)
+{
+    typedef Vector<typename TemplateMode<CASE>::Type> VectorLetterT;
+    typedef CWrapHandle<AMGX_vector_handle, VectorLetterT> VectorW;
+    //typedef typename VecPrecisionMap<AMGX_GET_MODE_VAL(AMGX_VecPrecision, CASE)>::Type ValueTypeB;
+    VectorW wrapV(vec);
+    VectorLetterT &v = *wrapV.wrapped();
+
+    if (!wrapV.is_valid()
+            || n < 0)
+        AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_PARAMETERS, resources)
+        cudaSetDevice(v.getResources()->getDevice(0));
+
+    Vector<typename VectorLetterT::TConfig_h> t_vec(n);
+
+    for (int i = 0; i < n; ++i)
+    {
+        t_vec[i] *= alpha;
+    }
+
+    v = t_vec;
     cudaCheckError();
     return AMGX_RC_OK;
 }
@@ -5211,6 +5242,63 @@ extern "C" {
     int AMGX_Debug_get_resource_count(AMGX_resources_handle rsc)
     {
         return ((ResourceW *)rsc)->wrapped().use_count();
+    }
+
+    AMGX_RC AMGX_vector_scale_impl(AMGX_vector_handle vec, int n, double alpha)
+    {
+        nvtxRange nvrf(__func__);
+
+        AMGX_CPU_PROFILER( "AMGX_vector_scale " );
+        Resources *resources;
+        AMGX_CHECK_API_ERROR(getAMGXerror(getResourcesFromVectorHandle(vec, &resources)), NULL);
+        AMGX_ERROR rc = AMGX_OK;
+        AMGX_RC rc0 = AMGX_RC_OK;
+
+//since resize falls directly into the thrust we can only catch bad_alloc here:
+        try
+        {
+            AMGX_Mode mode = get_mode_from<AMGX_vector_handle>(vec);
+
+            switch (mode)
+            {
+#define AMGX_CASE_LINE(CASE) case CASE: { \
+        rc0 = vector_scale<CASE>(vec, n, alpha, resources); \
+        }\
+        break;
+                    AMGX_FORALL_BUILDS(AMGX_CASE_LINE)
+                    AMGX_FORCOMPLEX_BUILDS(AMGX_CASE_LINE)
+#undef AMGX_CASE_LINE
+
+                default:
+                    AMGX_CHECK_API_ERROR(AMGX_ERR_BAD_MODE, resources)
+            }
+
+        }
+
+        AMGX_CATCHES(rc)
+        AMGX_CHECK_API_ERROR(rc, resources)
+        return rc0;
+    }
+
+    AMGX_RC AMGX_API AMGX_vector_scale(AMGX_vector_handle vec, int n, double alpha)
+    {
+        nvtxRange nvrf(__func__);
+        return AMGX_vector_scale_impl(vec, n, alpha);
+    }
+
+    AMGX_RC AMGX_API AMGX_vector_norm(const AMGX_vector_handle vec, double *norm)
+    {
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_vector_dot(const AMGX_vector_handle vec_a, const AMGX_vector_handle vec_b, double *dot)
+    {
+        return AMGX_RC_OK;
+    }
+
+    AMGX_RC AMGX_API AMGX_vector_copy(const AMGX_vector_handle vec_a, AMGX_vector_handle vec_b)
+    {
+        return AMGX_RC_OK;
     }
 
 }//extern "C"

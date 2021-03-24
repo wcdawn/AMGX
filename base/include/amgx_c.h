@@ -392,6 +392,29 @@ AMGX_RC AMGX_API AMGX_vector_bind
 (AMGX_vector_handle vec,
  const AMGX_matrix_handle mtx);
 
+/* vec = alpha * vec */
+AMGX_RC AMGX_API AMGX_vector_scale
+(AMGX_vector_handle vec,
+ int n,
+ double alpha);
+
+/* norm = \| vec \| */
+/* TODO maybe allow the user to specify which norm to use */
+AMGX_RC AMGX_API AMGX_vector_norm
+(const AMGX_vector_handle vec,
+ double *norm);
+
+/* dot = a^T * b */
+AMGX_RC AMGX_API AMGX_vector_dot 
+(const AMGX_vector_handle vec_a,
+ const AMGX_vector_handle vec_b,
+ double *dot);
+
+/* b = a */
+AMGX_RC AMGX_API AMGX_vector_copy
+(const AMGX_vector_handle vec_a,
+ AMGX_vector_handle vec_b);
+
 /* Solver */
 AMGX_RC AMGX_API AMGX_solver_create
 (AMGX_solver_handle *slv,
